@@ -5,7 +5,7 @@
         <div class="login-logo">
           <div class="logo-icon" style="width: 60px; height: 60px; font-size: 28px;">🍽️</div>
         </div>
-        <h1 class="login-title">RestaurantOS</h1>
+        <h1 class="login-title">RestrOps</h1>
         <p class="login-subtitle">Restaurant Operations Management System</p>
       </div>
       
@@ -152,5 +152,15 @@ const handleLogin = async () => {
   margin-top: 8px;
   color: var(--accent-primary);
   font-size: 12px;
+}
+
+@media (max-width: 768px) {
+  .login-card {
+    padding: 24px;
+    margin: 16px;
+  }
+  .login-title {
+    font-size: 24px;
+  }
 }
 </style>

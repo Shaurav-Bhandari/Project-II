@@ -115,27 +115,27 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { tablesAPI } from '../api'
 
 const showModal = ref(false)
 const editingTable = ref(null)
 const groupSize = ref(4)
 const allocationResult = ref(null)
-
-const tables = ref([
-  { id: 1, table_number: 'T1', capacity: 2, location: 'Window', status: 'occupied' },
-  { id: 2, table_number: 'T2', capacity: 2, location: 'Window', status: 'available' },
-  { id: 3, table_number: 'T3', capacity: 4, location: 'Center', status: 'occupied' },
-  { id: 4, table_number: 'T4', capacity: 4, location: 'Center', status: 'available' },
-  { id: 5, table_number: 'T5', capacity: 6, location: 'Corner', status: 'reserved' },
-  { id: 6, table_number: 'T6', capacity: 6, location: 'Corner', status: 'available' },
-  { id: 7, table_number: 'T7', capacity: 8, location: 'Private', status: 'occupied' },
-  { id: 8, table_number: 'T8', capacity: 4, location: 'Patio', status: 'available' },
-  { id: 9, table_number: 'T9', capacity: 4, location: 'Patio', status: 'maintenance' },
-  { id: 10, table_number: 'T10', capacity: 2, location: 'Bar', status: 'available' }
-])
+const tables = ref([])
 
 const tableForm = ref({ table_number: '', capacity: 4, location: 'Center', status: 'available' })
+
+const fetchTables = async () => {
+  try {
+    const res = await tablesAPI.getAll()
+    tables.value = res.data || []
+  } catch (e) {
+    console.error('Failed to fetch tables', e)
+  }
+}
+
+onMounted(fetchTables)
 
 const availableCount = computed(() => tables.value.filter(t => t.status === 'available').length)
 const occupiedCount = computed(() => tables.value.filter(t => t.status === 'occupied').length)
@@ -157,52 +157,50 @@ const openModal = (table = null) => {
   showModal.value = true
 }
 
-const saveTable = () => {
-  if (editingTable.value) {
-    Object.assign(editingTable.value, tableForm.value)
-  } else {
-    tables.value.push({ ...tableForm.value, id: Date.now() })
+const saveTable = async () => {
+  try {
+    if (editingTable.value) {
+      await tablesAPI.update(editingTable.value.id, tableForm.value)
+    } else {
+      await tablesAPI.create(tableForm.value)
+    }
+    showModal.value = false
+    await fetchTables()
+  } catch (e) {
+    alert('Failed to save table: ' + (e.response?.data?.error || e.message))
   }
-  showModal.value = false
 }
 
-const updateStatus = (table, status) => {
-  table.status = status
+const updateStatus = async (table, status) => {
+  try {
+    await tablesAPI.updateStatus(table.id, status)
+    table.status = status
+  } catch (e) {
+    console.error('Failed to update table status', e)
+  }
 }
 
 const selectTable = (table) => {
   // Could show table details or start an order
 }
 
-// Backtracking algorithm for table allocation
-const findTables = () => {
-  const available = tables.value.filter(t => t.status === 'available').sort((a, b) => b.capacity - a.capacity)
-  const result = findCombination(available, groupSize.value, [], 0)
-  
-  if (result) {
+// Use backend allocation endpoint
+const findTables = async () => {
+  try {
+    const res = await tablesAPI.allocate(groupSize.value)
     allocationResult.value = {
       found: true,
-      tables: result.map(t => t.table_number),
-      totalCapacity: result.reduce((sum, t) => sum + t.capacity, 0)
+      tables: res.data.tables,
+      totalCapacity: res.data.total_capacity
     }
-  } else {
-    allocationResult.value = { found: false }
+  } catch (e) {
+    if (e.response?.status === 404) {
+      allocationResult.value = { found: false }
+    } else {
+      console.error('Allocation error', e)
+      allocationResult.value = { found: false }
+    }
   }
-}
-
-// Backtracking helper
-const findCombination = (tables, target, current, start) => {
-  const currentCapacity = current.reduce((sum, t) => sum + t.capacity, 0)
-  
-  if (currentCapacity >= target) return current
-  if (start >= tables.length) return null
-  
-  // Try including current table
-  const withCurrent = findCombination(tables, target, [...current, tables[start]], start + 1)
-  if (withCurrent) return withCurrent
-  
-  // Try without current table
-  return findCombination(tables, target, current, start + 1)
 }
 </script>
 

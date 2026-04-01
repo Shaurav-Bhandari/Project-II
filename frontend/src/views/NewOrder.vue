@@ -59,7 +59,7 @@
           >
             <div class="menu-item-name">{{ item.name }}</div>
             <div class="menu-item-desc">{{ item.description }}</div>
-            <div class="menu-item-price">${{ item.price.toFixed(2) }}</div>
+            <div class="menu-item-price">NRS {{ item.price.toFixed(2) }}</div>
             <div class="menu-item-tags">
               <span v-if="item.is_vegetarian" class="menu-item-tag">🌱 Veg</span>
               <span v-if="item.is_vegan" class="menu-item-tag">🌿 Vegan</span>
@@ -89,23 +89,23 @@
             </div>
             <div class="cart-item-info">
               <div class="cart-item-name">{{ item.name }}</div>
-              <div class="cart-item-price">${{ item.price.toFixed(2) }} each</div>
+              <div class="cart-item-price">NRS {{ item.price.toFixed(2) }} each</div>
             </div>
-            <div class="cart-item-total">${{ (item.price * item.quantity).toFixed(2) }}</div>
+            <div class="cart-item-total">NRS {{ (item.price * item.quantity).toFixed(2) }}</div>
           </div>
           
           <div class="cart-summary">
             <div class="cart-row">
               <span>Subtotal</span>
-              <span>${{ subtotal.toFixed(2) }}</span>
+              <span>NRS {{ subtotal.toFixed(2) }}</span>
             </div>
             <div class="cart-row">
               <span>Tax (10%)</span>
-              <span>${{ tax.toFixed(2) }}</span>
+              <span>NRS {{ tax.toFixed(2) }}</span>
             </div>
             <div class="cart-row cart-total">
               <span>Total</span>
-              <span>${{ total.toFixed(2) }}</span>
+              <span>NRS {{ total.toFixed(2) }}</span>
             </div>
           </div>
           
@@ -127,8 +127,9 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { menuAPI, tablesAPI, ordersAPI } from '../api'
 
 const router = useRouter()
 
@@ -141,37 +142,24 @@ const orderInfo = ref({
 
 const activeCategory = ref('all')
 const cart = ref([])
+const availableTables = ref([])
+const categories = ref([])
+const menuItems = ref([])
 
-const availableTables = ref([
-  { id: 1, table_number: 'T1', capacity: 2 },
-  { id: 2, table_number: 'T2', capacity: 2 },
-  { id: 4, table_number: 'T4', capacity: 4 },
-  { id: 6, table_number: 'T6', capacity: 6 },
-  { id: 8, table_number: 'T8', capacity: 4 },
-  { id: 10, table_number: 'T10', capacity: 2 }
-])
-
-const categories = ref([
-  { id: 1, name: 'Appetizers' },
-  { id: 2, name: 'Main Courses' },
-  { id: 3, name: 'Desserts' },
-  { id: 4, name: 'Beverages' }
-])
-
-const menuItems = ref([
-  { id: 1, category_id: 1, name: 'Spring Rolls', description: 'Crispy vegetable spring rolls', price: 8.99, is_available: true, is_vegetarian: true, is_vegan: false, is_gluten_free: false, spice_level: 1 },
-  { id: 2, category_id: 1, name: 'Chicken Wings', description: 'Spicy buffalo wings', price: 12.99, is_available: true, is_vegetarian: false, is_vegan: false, is_gluten_free: true, spice_level: 3 },
-  { id: 3, category_id: 1, name: 'Soup of the Day', description: 'Chef\'s special soup', price: 6.99, is_available: true, is_vegetarian: true, is_vegan: true, is_gluten_free: true, spice_level: 0 },
-  { id: 4, category_id: 2, name: 'Grilled Salmon', description: 'Atlantic salmon with lemon butter', price: 24.99, is_available: true, is_vegetarian: false, is_vegan: false, is_gluten_free: true, spice_level: 0 },
-  { id: 5, category_id: 2, name: 'Ribeye Steak', description: '12oz prime cut', price: 34.99, is_available: true, is_vegetarian: false, is_vegan: false, is_gluten_free: true, spice_level: 0 },
-  { id: 6, category_id: 2, name: 'Vegetable Pasta', description: 'Penne with roasted vegetables', price: 16.99, is_available: true, is_vegetarian: true, is_vegan: false, is_gluten_free: false, spice_level: 1 },
-  { id: 7, category_id: 2, name: 'Chicken Tikka Masala', description: 'Creamy tomato curry', price: 18.99, is_available: false, is_vegetarian: false, is_vegan: false, is_gluten_free: true, spice_level: 2 },
-  { id: 8, category_id: 3, name: 'Chocolate Lava Cake', description: 'Warm cake with molten center', price: 9.99, is_available: true, is_vegetarian: true, is_vegan: false, is_gluten_free: false, spice_level: 0 },
-  { id: 9, category_id: 3, name: 'Cheesecake', description: 'NY style with berry compote', price: 8.99, is_available: true, is_vegetarian: true, is_vegan: false, is_gluten_free: false, spice_level: 0 },
-  { id: 10, category_id: 4, name: 'Fresh Lemonade', description: 'Homemade fresh', price: 4.99, is_available: true, is_vegetarian: true, is_vegan: true, is_gluten_free: true, spice_level: 0 },
-  { id: 11, category_id: 4, name: 'Iced Tea', description: 'Regular or peach', price: 3.99, is_available: true, is_vegetarian: true, is_vegan: true, is_gluten_free: true, spice_level: 0 },
-  { id: 12, category_id: 4, name: 'Coffee', description: 'Freshly brewed', price: 3.49, is_available: true, is_vegetarian: true, is_vegan: true, is_gluten_free: true, spice_level: 0 }
-])
+onMounted(async () => {
+  try {
+    const [catRes, itemRes, tableRes] = await Promise.all([
+      menuAPI.getCategories(),
+      menuAPI.getItems(),
+      tablesAPI.getAll()
+    ])
+    categories.value = catRes.data || []
+    menuItems.value = (itemRes.data || []).map(i => ({ ...i, price: Number(i.price) }))
+    availableTables.value = (tableRes.data || []).filter(t => t.status === 'available')
+  } catch (e) {
+    console.error('Failed to load data', e)
+  }
+})
 
 const filteredMenuItems = computed(() => {
   if (activeCategory.value === 'all') return menuItems.value
@@ -205,9 +193,24 @@ const clearCart = () => {
 }
 
 const submitOrder = async () => {
-  // In production, this would call the API
-  alert('Order placed successfully!')
-  router.push('/orders')
+  if (cart.value.length === 0) return
+  try {
+    const orderData = {
+      table_id: orderInfo.value.tableId || undefined,
+      customer_name: orderInfo.value.customerName,
+      order_type: orderInfo.value.orderType,
+      notes: orderInfo.value.notes,
+      items: cart.value.map(i => ({
+        menu_item_id: i.id,
+        quantity: i.quantity,
+        special_instructions: ''
+      }))
+    }
+    await ordersAPI.create(orderData)
+    router.push('/orders')
+  } catch (e) {
+    alert('Failed to place order: ' + (e.response?.data?.error || e.message))
+  }
 }
 </script>
 

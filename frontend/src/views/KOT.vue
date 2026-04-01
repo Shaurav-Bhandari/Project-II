@@ -97,9 +97,11 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { kotAPI } from '../api'
 
 const activeFilter = ref('all')
+const kots = ref([])
 
 const statusFilters = [
   { value: 'all', label: 'All KOTs' },
@@ -108,42 +110,16 @@ const statusFilters = [
   { value: 'completed', label: 'Completed' }
 ]
 
-const kots = ref([
-  {
-    id: 1, kot_number: 89, order_number: 1047, table_number: 'T3', status: 'in_progress',
-    assigned_chef: 'Chef Marco', created_at: new Date(Date.now() - 12*60000),
-    items: [
-      { id: 1, menu_item_name: 'Grilled Salmon', quantity: 2, status: 'in_progress', special_instructions: 'Medium rare' },
-      { id: 2, menu_item_name: 'Spring Rolls', quantity: 1, status: 'completed', special_instructions: null },
-      { id: 3, menu_item_name: 'Fresh Lemonade', quantity: 2, status: 'completed', special_instructions: 'Less ice' }
-    ]
-  },
-  {
-    id: 2, kot_number: 90, order_number: 1048, table_number: 'T7', status: 'pending',
-    assigned_chef: null, created_at: new Date(Date.now() - 5*60000),
-    items: [
-      { id: 4, menu_item_name: 'Ribeye Steak', quantity: 1, status: 'pending', special_instructions: 'Well done' },
-      { id: 5, menu_item_name: 'Vegetable Pasta', quantity: 2, status: 'pending', special_instructions: null },
-      { id: 6, menu_item_name: 'Chocolate Lava Cake', quantity: 2, status: 'pending', special_instructions: null }
-    ]
-  },
-  {
-    id: 3, kot_number: 91, order_number: 1049, table_number: 'T1', status: 'pending',
-    assigned_chef: null, created_at: new Date(Date.now() - 2*60000),
-    items: [
-      { id: 7, menu_item_name: 'Chicken Wings', quantity: 2, status: 'pending', special_instructions: 'Extra spicy' },
-      { id: 8, menu_item_name: 'Iced Tea', quantity: 2, status: 'pending', special_instructions: null }
-    ]
-  },
-  {
-    id: 4, kot_number: 88, order_number: 1046, table_number: 'T5', status: 'completed',
-    assigned_chef: 'Chef Anna', created_at: new Date(Date.now() - 25*60000),
-    items: [
-      { id: 9, menu_item_name: 'Soup of the Day', quantity: 2, status: 'completed', special_instructions: null },
-      { id: 10, menu_item_name: 'Cheesecake', quantity: 1, status: 'completed', special_instructions: null }
-    ]
+const fetchKots = async () => {
+  try {
+    const res = await kotAPI.getAll()
+    kots.value = res.data || []
+  } catch (e) {
+    console.error('Failed to fetch KOTs', e)
   }
-])
+}
+
+onMounted(fetchKots)
 
 const filteredKots = computed(() => {
   if (activeFilter.value === 'all') return kots.value
@@ -171,15 +147,23 @@ const getTimeAgo = (date) => {
   return `${minutes} mins ago`
 }
 
-const updateKotStatus = (kot, status) => {
-  kot.status = status
-  if (status === 'in_progress') {
-    kot.assigned_chef = 'Chef Marco'
+const updateKotStatus = async (kot, status) => {
+  try {
+    await kotAPI.updateStatus(kot.id, status)
+    kot.status = status
+  } catch (e) {
+    console.error('Failed to update KOT status', e)
   }
 }
 
-const toggleItemStatus = (kotId, item) => {
-  item.status = item.status === 'completed' ? 'in_progress' : 'completed'
+const toggleItemStatus = async (kotId, item) => {
+  const newStatus = item.status === 'completed' ? 'in_progress' : 'completed'
+  try {
+    await kotAPI.updateItemStatus(kotId, item.id, newStatus)
+    item.status = newStatus
+  } catch (e) {
+    console.error('Failed to toggle item status', e)
+  }
 }
 </script>
 
@@ -229,5 +213,17 @@ const toggleItemStatus = (kotId, item) => {
   display: flex;
   align-items: center;
   gap: 6px;
+}
+
+@media (max-width: 768px) {
+  .filters {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 8px;
+    margin-bottom: 16px;
+  }
+  .filters::-webkit-scrollbar { height: 4px; }
+  .filters::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+  .filter-btn { white-space: nowrap; }
 }
 </style>

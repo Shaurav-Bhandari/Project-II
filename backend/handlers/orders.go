@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"restaurant-management/models"
@@ -27,12 +28,12 @@ func (h *Handler) GetOrders(c *gin.Context) {
 
 	if status != "" {
 		argCount++
-		query += " AND o.status = $" + string(rune('0'+argCount))
+		query += fmt.Sprintf(" AND o.status = $%d", argCount)
 		args = append(args, status)
 	}
 	if tableID != "" {
 		argCount++
-		query += " AND o.table_id = $" + string(rune('0'+argCount))
+		query += fmt.Sprintf(" AND o.table_id = $%d", argCount)
 		args = append(args, tableID)
 	}
 
@@ -154,10 +155,19 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	// Add order items
+	// Add order items and collect info for KOT
+	type itemInfo struct {
+		menuItemName        string
+		quantity            int
+		specialInstructions string
+		orderItemID         uuid.UUID
+	}
+	var kotItems []itemInfo
+
 	for _, item := range req.Items {
 		var price float64
-		err := h.db.QueryRow("SELECT price FROM menu_items WHERE id = $1", item.MenuItemID).Scan(&price)
+		var menuItemName string
+		err := h.db.QueryRow("SELECT price, name FROM menu_items WHERE id = $1", item.MenuItemID).Scan(&price, &menuItemName)
 		if err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid menu item"})
@@ -165,14 +175,59 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		}
 
 		totalPrice := price * float64(item.Quantity)
-		_, err = tx.Exec(`
+		var orderItemID uuid.UUID
+		err = tx.QueryRow(`
 			INSERT INTO order_items (order_id, menu_item_id, quantity, unit_price, total_price, special_instructions)
 			VALUES ($1, $2, $3, $4, $5, $6)
-		`, orderID, item.MenuItemID, item.Quantity, price, totalPrice, item.SpecialInstructions)
+			RETURNING id
+		`, orderID, item.MenuItemID, item.Quantity, price, totalPrice, item.SpecialInstructions).Scan(&orderItemID)
 
 		if err != nil {
 			tx.Rollback()
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add order items"})
+			return
+		}
+
+		kotItems = append(kotItems, itemInfo{
+			menuItemName:        menuItemName,
+			quantity:            item.Quantity,
+			specialInstructions: item.SpecialInstructions,
+			orderItemID:         orderItemID,
+		})
+	}
+
+	// Auto-confirm the order
+	_, err = tx.Exec("UPDATE orders SET status = 'confirmed' WHERE id = $1", orderID)
+	if err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to confirm order"})
+		return
+	}
+
+	// Auto-generate KOT for the kitchen
+	var kotID uuid.UUID
+	err = tx.QueryRow(`
+		INSERT INTO kots (order_id, status, priority, station)
+		VALUES ($1, 'pending', 1, 'main')
+		RETURNING id
+	`, orderID).Scan(&kotID)
+
+	if err != nil {
+		tx.Rollback()
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create KOT"})
+		return
+	}
+
+	// Add KOT items
+	for _, ki := range kotItems {
+		_, err = tx.Exec(`
+			INSERT INTO kot_items (kot_id, order_item_id, menu_item_name, quantity, special_instructions, status)
+			VALUES ($1, $2, $3, $4, $5, 'pending')
+		`, kotID, ki.orderItemID, ki.menuItemName, ki.quantity, ki.specialInstructions)
+
+		if err != nil {
+			tx.Rollback()
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to add KOT items"})
 			return
 		}
 	}
@@ -182,7 +237,7 @@ func (h *Handler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": orderID, "message": "Order created successfully"})
+	c.JSON(http.StatusCreated, gin.H{"id": orderID, "kot_id": kotID, "message": "Order created and sent to kitchen"})
 }
 
 func (h *Handler) UpdateOrder(c *gin.Context) {

@@ -17,7 +17,7 @@ func (h *Handler) GetKOTs(c *gin.Context) {
 
 	query := `
 		SELECT k.id, k.kot_number, k.order_id, o.order_number, COALESCE(t.table_number, ''),
-		       k.status, k.priority, k.station, k.assigned_chef, k.started_at, k.completed_at, k.created_at
+		       k.status, k.priority, k.station, COALESCE(k.assigned_chef, ''), k.started_at, k.completed_at, k.created_at
 		FROM kots k
 		LEFT JOIN orders o ON k.order_id = o.id
 		LEFT JOIN restaurant_tables t ON o.table_id = t.id
@@ -115,7 +115,7 @@ func (h *Handler) GetKOT(c *gin.Context) {
 	var kot models.KOT
 	err := h.db.QueryRow(`
 		SELECT k.id, k.kot_number, k.order_id, o.order_number, COALESCE(t.table_number, ''),
-		       k.status, k.priority, k.station, k.assigned_chef, k.started_at, k.completed_at, k.created_at
+		       k.status, k.priority, k.station, COALESCE(k.assigned_chef, ''), k.started_at, k.completed_at, k.created_at
 		FROM kots k
 		LEFT JOIN orders o ON k.order_id = o.id
 		LEFT JOIN restaurant_tables t ON o.table_id = t.id

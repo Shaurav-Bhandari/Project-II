@@ -98,27 +98,30 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { usersAPI } from '../api'
 
 const showModal = ref(false)
 const editingUser = ref(null)
-
-const roles = ref([
-  { id: 1, name: 'admin' },
-  { id: 2, name: 'manager' },
-  { id: 3, name: 'staff' },
-  { id: 4, name: 'kitchen' }
-])
-
-const users = ref([
-  { id: 1, first_name: 'System', last_name: 'Admin', email: 'admin@restaurant.com', role: 'admin', is_active: true, last_login: new Date() },
-  { id: 2, first_name: 'John', last_name: 'Manager', email: 'john@restaurant.com', role: 'manager', is_active: true, last_login: new Date(Date.now() - 86400000) },
-  { id: 3, first_name: 'Sarah', last_name: 'Staff', email: 'sarah@restaurant.com', role: 'staff', is_active: true, last_login: new Date(Date.now() - 3600000) },
-  { id: 4, first_name: 'Marco', last_name: 'Chef', email: 'marco@restaurant.com', role: 'kitchen', is_active: true, last_login: new Date(Date.now() - 7200000) },
-  { id: 5, first_name: 'Jane', last_name: 'Doe', email: 'jane@restaurant.com', role: 'staff', is_active: false, last_login: new Date(Date.now() - 604800000) }
-])
+const roles = ref([])
+const users = ref([])
 
 const userForm = ref({ first_name: '', last_name: '', email: '', password: '', role: 'staff' })
+
+const fetchData = async () => {
+  try {
+    const [usersRes, rolesRes] = await Promise.all([
+      usersAPI.getAll(),
+      usersAPI.getRoles()
+    ])
+    users.value = usersRes.data || []
+    roles.value = rolesRes.data || []
+  } catch (e) {
+    console.error('Failed to fetch users', e)
+  }
+}
+
+onMounted(fetchData)
 
 const getRoleBadge = (role) => {
   const badges = { admin: 'badge-danger', manager: 'badge-warning', staff: 'badge-primary', kitchen: 'badge-info' }
@@ -141,17 +144,27 @@ const openModal = (user = null) => {
   showModal.value = true
 }
 
-const saveUser = () => {
-  if (editingUser.value) {
-    Object.assign(editingUser.value, userForm.value)
-  } else {
-    users.value.push({ ...userForm.value, id: Date.now(), is_active: true, last_login: null })
+const saveUser = async () => {
+  try {
+    if (editingUser.value) {
+      await usersAPI.update(editingUser.value.id, userForm.value)
+    } else {
+      await usersAPI.create(userForm.value)
+    }
+    showModal.value = false
+    await fetchData()
+  } catch (e) {
+    alert('Failed to save user: ' + (e.response?.data?.error || e.message))
   }
-  showModal.value = false
 }
 
-const toggleActive = (user) => {
-  user.is_active = !user.is_active
+const toggleActive = async (user) => {
+  try {
+    await usersAPI.update(user.id, { is_active: !user.is_active })
+    user.is_active = !user.is_active
+  } catch (e) {
+    console.error('Failed to toggle user status', e)
+  }
 }
 </script>
 

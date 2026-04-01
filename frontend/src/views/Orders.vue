@@ -39,7 +39,7 @@
               <td>{{ order.table_number || 'Takeaway' }}</td>
               <td>{{ order.customer_name || '-' }}</td>
               <td>{{ order.items?.length || 0 }} items</td>
-              <td><strong>${{ order.total.toFixed(2) }}</strong></td>
+              <td><strong>NRS {{ order.total.toFixed(2) }}</strong></td>
               <td>
                 <span :class="['badge', getStatusBadge(order.status)]">
                   {{ order.status }}
@@ -114,22 +114,22 @@
             <div v-for="item in selectedOrder.items" :key="item.id" class="order-item-row">
               <span class="item-qty">{{ item.quantity }}x</span>
               <span class="item-name">{{ item.menu_item_name }}</span>
-              <span class="item-price">${{ item.total_price.toFixed(2) }}</span>
+              <span class="item-price">NRS {{ item.total_price.toFixed(2) }}</span>
             </div>
           </div>
           
           <div class="order-totals">
             <div class="total-row">
               <span>Subtotal</span>
-              <span>${{ selectedOrder.subtotal.toFixed(2) }}</span>
+              <span>NRS {{ selectedOrder.subtotal.toFixed(2) }}</span>
             </div>
             <div class="total-row">
               <span>Tax (10%)</span>
-              <span>${{ selectedOrder.tax.toFixed(2) }}</span>
+              <span>NRS {{ selectedOrder.tax.toFixed(2) }}</span>
             </div>
             <div class="total-row total-final">
               <span>Total</span>
-              <span>${{ selectedOrder.total.toFixed(2) }}</span>
+              <span>NRS {{ selectedOrder.total.toFixed(2) }}</span>
             </div>
           </div>
         </div>
@@ -150,13 +150,13 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { useOrdersStore } from '../stores/orders'
-
-const ordersStore = useOrdersStore()
+import { ordersAPI } from '../api'
 
 const activeFilter = ref('all')
 const showModal = ref(false)
 const selectedOrder = ref(null)
+const orders = ref([])
+const loading = ref(false)
 
 const statusFilters = [
   { value: 'all', label: 'All Orders' },
@@ -168,18 +168,19 @@ const statusFilters = [
   { value: 'completed', label: 'Completed' }
 ]
 
-// Demo orders data
-const orders = ref([
-  { id: 1, order_number: 1047, table_number: 'T3', customer_name: 'John Doe', status: 'preparing', total: 89.96, subtotal: 81.78, tax: 8.18, created_at: new Date(), items: [
-    { id: 1, menu_item_name: 'Grilled Salmon', quantity: 2, total_price: 49.98 },
-    { id: 2, menu_item_name: 'Spring Rolls', quantity: 1, total_price: 8.99 },
-    { id: 3, menu_item_name: 'Fresh Lemonade', quantity: 2, total_price: 9.98 }
-  ]},
-  { id: 2, order_number: 1046, table_number: 'T7', customer_name: 'Jane Smith', status: 'ready', total: 156.94, subtotal: 142.67, tax: 14.27, created_at: new Date(Date.now() - 30*60000), items: []},
-  { id: 3, order_number: 1045, table_number: null, customer_name: 'Mike Johnson', status: 'completed', total: 34.98, subtotal: 31.80, tax: 3.18, created_at: new Date(Date.now() - 60*60000), items: []},
-  { id: 4, order_number: 1044, table_number: 'T1', customer_name: null, status: 'served', total: 52.97, subtotal: 48.15, tax: 4.82, created_at: new Date(Date.now() - 90*60000), items: []},
-  { id: 5, order_number: 1043, table_number: 'T5', customer_name: 'Sarah Wilson', status: 'pending', total: 124.95, subtotal: 113.59, tax: 11.36, created_at: new Date(Date.now() - 5*60000), items: []}
-])
+const fetchOrders = async () => {
+  loading.value = true
+  try {
+    const res = await ordersAPI.getAll()
+    orders.value = (res.data || []).map(o => ({ ...o, total: o.total || 0, subtotal: o.subtotal || 0, tax: o.tax || 0 }))
+  } catch (e) {
+    console.error('Failed to fetch orders', e)
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(fetchOrders)
 
 const filteredOrders = computed(() => {
   if (activeFilter.value === 'all') return orders.value
@@ -203,19 +204,34 @@ const formatTime = (date) => {
   return new Date(date).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
-const viewOrder = (order) => {
-  selectedOrder.value = order
-  showModal.value = true
+const viewOrder = async (order) => {
+  try {
+    const res = await ordersAPI.getById(order.id)
+    selectedOrder.value = { ...res.data, total: res.data.total || 0, subtotal: res.data.subtotal || 0, tax: res.data.tax || 0 }
+    showModal.value = true
+  } catch (e) {
+    console.error('Failed to fetch order details', e)
+  }
 }
 
 const confirmOrder = async (id) => {
-  const order = orders.value.find(o => o.id === id)
-  if (order) order.status = 'confirmed'
+  try {
+    await ordersAPI.updateStatus(id, 'confirmed')
+    const order = orders.value.find(o => o.id === id)
+    if (order) order.status = 'confirmed'
+  } catch (e) {
+    console.error('Failed to confirm order', e)
+  }
 }
 
 const updateStatus = async (id, status) => {
-  const order = orders.value.find(o => o.id === id)
-  if (order) order.status = status
+  try {
+    await ordersAPI.updateStatus(id, status)
+    const order = orders.value.find(o => o.id === id)
+    if (order) order.status = status
+  } catch (e) {
+    console.error('Failed to update order status', e)
+  }
 }
 </script>
 
@@ -294,5 +310,24 @@ const updateStatus = async (id, status) => {
   padding-top: 12px;
   border-top: 1px solid var(--border-color);
   margin-top: 8px;
+}
+
+@media (max-width: 768px) {
+  .order-info-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  .page-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filters {
+    display: flex;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+  .filters::-webkit-scrollbar { height: 4px; }
+  .filters::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 2px; }
+  .filter-btn { white-space: nowrap; }
 }
 </style>

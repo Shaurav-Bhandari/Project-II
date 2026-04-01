@@ -43,7 +43,7 @@
       
       <div class="stat-card warning">
         <div class="stat-icon">💰</div>
-        <div class="stat-value">${{ stats.dailyRevenue.toLocaleString() }}</div>
+        <div class="stat-value">NRS {{ stats.dailyRevenue.toLocaleString() }}</div>
         <div class="stat-label">Daily Revenue</div>
         <div class="stat-change up">
           <span>↑</span>
@@ -85,7 +85,7 @@
                 <td><strong>#{{ order.order_number }}</strong></td>
                 <td>{{ order.table_number || 'Takeaway' }}</td>
                 <td>{{ order.item_count }} items</td>
-                <td>${{ order.total.toFixed(2) }}</td>
+                <td>NRS {{ order.total.toFixed(2) }}</td>
                 <td>
                   <span :class="['badge', getStatusBadge(order.status)]">
                     {{ order.status }}
@@ -156,12 +156,12 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { reportsAPI, tablesAPI } from '../api'
+import { reportsAPI, ordersAPI, kotAPI, tablesAPI } from '../api'
 
 const stats = ref({
   totalOrders: 0,
   activeTables: 0,
-  totalTables: 10,
+  totalTables: 0,
   dailyRevenue: 0,
   pendingKots: 0,
   inProgressKots: 0
@@ -171,44 +171,45 @@ const recentOrders = ref([])
 const activeKots = ref([])
 const tables = ref([])
 
-// Demo data
 onMounted(async () => {
-  // In production, these would be API calls
-  stats.value = {
-    totalOrders: 47,
-    activeTables: 6,
-    totalTables: 10,
-    dailyRevenue: 2847.50,
-    pendingKots: 4,
-    inProgressKots: 2
+  try {
+    const [dashRes, ordersRes, kotsRes, tablesRes] = await Promise.all([
+      reportsAPI.getDashboard(),
+      ordersAPI.getAll(),
+      kotAPI.getAll(),
+      tablesAPI.getAll()
+    ])
+
+    const d = dashRes.data
+    stats.value = {
+      totalOrders: d.total_orders || 0,
+      activeTables: d.active_tables || 0,
+      totalTables: d.total_tables || 0,
+      dailyRevenue: d.daily_revenue || 0,
+      pendingKots: d.pending_kots || 0,
+      inProgressKots: d.in_progress_kots || 0
+    }
+
+    const allOrders = ordersRes.data || []
+    recentOrders.value = allOrders.slice(0, 5).map(o => ({
+      ...o,
+      item_count: o.items?.length || 0,
+      total: o.total || 0
+    }))
+
+    const allKots = kotsRes.data || []
+    activeKots.value = allKots
+      .filter(k => k.status !== 'completed')
+      .slice(0, 5)
+      .map(k => ({
+        ...k,
+        item_count: k.items?.length || 0
+      }))
+
+    tables.value = tablesRes.data || []
+  } catch (e) {
+    console.error('Dashboard load error', e)
   }
-  
-  recentOrders.value = [
-    { id: 1, order_number: 1047, table_number: 'T3', item_count: 4, total: 89.96, status: 'preparing' },
-    { id: 2, order_number: 1046, table_number: 'T7', item_count: 6, total: 156.94, status: 'ready' },
-    { id: 3, order_number: 1045, table_number: null, item_count: 2, total: 34.98, status: 'completed' },
-    { id: 4, order_number: 1044, table_number: 'T1', item_count: 3, total: 52.97, status: 'served' },
-    { id: 5, order_number: 1043, table_number: 'T5', item_count: 5, total: 124.95, status: 'completed' }
-  ]
-  
-  activeKots.value = [
-    { id: 1, kot_number: 89, table_number: 'T3', item_count: 4, status: 'in_progress', created_at: new Date(Date.now() - 12 * 60000) },
-    { id: 2, kot_number: 90, table_number: 'T7', item_count: 3, status: 'pending', created_at: new Date(Date.now() - 5 * 60000) },
-    { id: 3, kot_number: 91, table_number: 'T1', item_count: 2, status: 'pending', created_at: new Date(Date.now() - 2 * 60000) }
-  ]
-  
-  tables.value = [
-    { id: 1, table_number: 'T1', capacity: 2, status: 'occupied' },
-    { id: 2, table_number: 'T2', capacity: 2, status: 'available' },
-    { id: 3, table_number: 'T3', capacity: 4, status: 'occupied' },
-    { id: 4, table_number: 'T4', capacity: 4, status: 'available' },
-    { id: 5, table_number: 'T5', capacity: 6, status: 'reserved' },
-    { id: 6, table_number: 'T6', capacity: 6, status: 'available' },
-    { id: 7, table_number: 'T7', capacity: 8, status: 'occupied' },
-    { id: 8, table_number: 'T8', capacity: 4, status: 'available' },
-    { id: 9, table_number: 'T9', capacity: 4, status: 'maintenance' },
-    { id: 10, table_number: 'T10', capacity: 2, status: 'available' }
-  ]
 })
 
 const getStatusBadge = (status) => {

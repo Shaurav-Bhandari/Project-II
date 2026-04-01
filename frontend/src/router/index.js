@@ -60,6 +60,18 @@ const routes = [
         name: 'Tables',
         component: () => import('../views/Tables.vue'),
         meta: { requiresAuth: true }
+    },
+    {
+        path: '/staff/order',
+        name: 'StaffOrder',
+        component: () => import('../views/StaffOrder.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/kitchen',
+        name: 'KitchenDisplay',
+        component: () => import('../views/KitchenDisplay.vue'),
+        meta: { requiresAuth: true, roles: ['kitchen', 'admin', 'manager'], layout: 'none' }
     }
 ]
 
@@ -75,9 +87,17 @@ router.beforeEach((to, from, next) => {
 
     if (to.meta.requiresAuth && !token) {
         next('/login')
-    } else if (to.meta.roles && !to.meta.roles.includes(userRole)) {
-        next('/')
     } else if (to.path === '/login' && token) {
+        // After login, kitchen users go straight to KDS
+        if (userRole === 'kitchen') {
+            next('/kitchen')
+        } else {
+            next('/')
+        }
+    } else if (token && userRole === 'kitchen' && to.path !== '/kitchen') {
+        // Kitchen users can ONLY access the KDS
+        next('/kitchen')
+    } else if (to.meta.roles && !to.meta.roles.includes(userRole)) {
         next('/')
     } else {
         next()

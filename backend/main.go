@@ -19,6 +19,7 @@ func main() {
 		log.Println("No .env file found, using system environment variables")
 	}
 
+	
 	// Initialize database
 	db, err := config.InitDB()
 	if err != nil {
@@ -41,7 +42,7 @@ func main() {
 
 	// CORS configuration
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173", "http://localhost:3000"},
+		AllowOrigins:     []string{"*"},
 		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
 		AllowCredentials: true,

@@ -41,7 +41,7 @@
                 <td><strong>#{{ order.order_number }}</strong></td>
                 <td>{{ order.table_number || 'Takeaway' }}</td>
                 <td>{{ order.item_count }} items</td>
-                <td><strong>${{ order.total.toFixed(2) }}</strong></td>
+                <td><strong>NRS {{ order.total.toFixed(2) }}</strong></td>
                 <td>{{ order.payment_method || '-' }}</td>
                 <td>
                   <span :class="['badge', order.payment_status === 'paid' ? 'badge-success' : 'badge-warning']">
@@ -71,7 +71,7 @@
         <div class="summary-stats">
           <div class="summary-item">
             <div class="summary-label">Total Revenue</div>
-            <div class="summary-value success">${{ todaySummary.revenue.toLocaleString() }}</div>
+            <div class="summary-value success">NRS {{ todaySummary.revenue.toLocaleString() }}</div>
           </div>
           <div class="summary-item">
             <div class="summary-label">Orders Completed</div>
@@ -79,7 +79,7 @@
           </div>
           <div class="summary-item">
             <div class="summary-label">Avg Order Value</div>
-            <div class="summary-value">${{ todaySummary.avgOrderValue.toFixed(2) }}</div>
+            <div class="summary-value">NRS {{ todaySummary.avgOrderValue.toFixed(2) }}</div>
           </div>
           <div class="summary-item">
             <div class="summary-label">Pending Payments</div>
@@ -91,7 +91,7 @@
         <div class="payment-breakdown">
           <div v-for="method in paymentBreakdown" :key="method.name" class="payment-method-row">
             <span>{{ method.name }}</span>
-            <span><strong>${{ method.amount.toFixed(2) }}</strong></span>
+            <span><strong>NRS {{ method.amount.toFixed(2) }}</strong></span>
           </div>
         </div>
       </div>
@@ -106,9 +106,9 @@
         </div>
         <div class="modal-body" v-if="selectedOrder">
           <div class="payment-summary">
-            <div class="payment-row"><span>Subtotal</span><span>${{ selectedOrder.subtotal.toFixed(2) }}</span></div>
-            <div class="payment-row"><span>Tax</span><span>${{ selectedOrder.tax.toFixed(2) }}</span></div>
-            <div class="payment-row total"><span>Total Due</span><span>${{ selectedOrder.total.toFixed(2) }}</span></div>
+            <div class="payment-row"><span>Subtotal</span><span>NRS {{ selectedOrder.subtotal.toFixed(2) }}</span></div>
+            <div class="payment-row"><span>Tax</span><span>NRS {{ selectedOrder.tax.toFixed(2) }}</span></div>
+            <div class="payment-row total"><span>Total Due</span><span>NRS {{ selectedOrder.total.toFixed(2) }}</span></div>
           </div>
           
           <div class="form-group" style="margin-top: 24px;">
@@ -133,7 +133,7 @@
           
           <div class="payment-row total" style="margin-top: 16px;">
             <span>Total with Tip</span>
-            <span>${{ (selectedOrder.total + (paymentForm.tip || 0)).toFixed(2) }}</span>
+            <span>NRS {{ (selectedOrder.total + (paymentForm.tip || 0)).toFixed(2) }}</span>
           </div>
         </div>
         <div class="modal-footer">
@@ -146,14 +146,15 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { ordersAPI, billingAPI, reportsAPI } from '../api'
 
 const activeFilter = ref('all')
 const dateFilter = ref('')
 const paymentMethodFilter = ref('')
 const showPaymentModal = ref(false)
 const selectedOrder = ref(null)
-const paymentForm = ref({ method: 1, tip: 0 })
+const paymentForm = ref({ method: '', tip: 0 })
 
 const statusFilters = [
   { value: 'all', label: 'All' },
@@ -161,33 +162,67 @@ const statusFilters = [
   { value: 'paid', label: 'Paid' }
 ]
 
-const paymentMethods = ref([
-  { id: 1, name: 'Cash', icon: '💵' },
-  { id: 2, name: 'Credit Card', icon: '💳' },
-  { id: 3, name: 'Debit Card', icon: '💳' },
-  { id: 4, name: 'Mobile Pay', icon: '📱' }
-])
-
-const orders = ref([
-  { id: 1, order_number: 1047, table_number: 'T3', item_count: 4, total: 89.96, subtotal: 81.78, tax: 8.18, payment_status: 'unpaid', payment_method: null },
-  { id: 2, order_number: 1046, table_number: 'T7', item_count: 6, total: 156.94, subtotal: 142.67, tax: 14.27, payment_status: 'paid', payment_method: 'Credit Card' },
-  { id: 3, order_number: 1045, table_number: null, item_count: 2, total: 34.98, subtotal: 31.80, tax: 3.18, payment_status: 'paid', payment_method: 'Cash' },
-  { id: 4, order_number: 1044, table_number: 'T1', item_count: 3, total: 52.97, subtotal: 48.15, tax: 4.82, payment_status: 'unpaid', payment_method: null }
-])
+const paymentMethods = ref([])
+const orders = ref([])
+const payments = ref([])
 
 const todaySummary = ref({
-  revenue: 2847.50,
-  ordersCompleted: 47,
-  avgOrderValue: 60.58,
-  pendingPayments: 5
+  revenue: 0,
+  ordersCompleted: 0,
+  avgOrderValue: 0,
+  pendingPayments: 0
 })
 
-const paymentBreakdown = ref([
-  { name: 'Cash', amount: 845.50 },
-  { name: 'Credit Card', amount: 1542.00 },
-  { name: 'Debit Card', amount: 320.00 },
-  { name: 'Mobile Pay', amount: 140.00 }
-])
+const paymentBreakdown = ref([])
+
+const fetchData = async () => {
+  try {
+    const [ordersRes, methodsRes, paymentsRes, salesRes] = await Promise.all([
+      ordersAPI.getAll(),
+      billingAPI.getPaymentMethods(),
+      billingAPI.getPayments(),
+      reportsAPI.getSalesSummary()
+    ])
+
+    const allOrders = ordersRes.data || []
+    const allPayments = paymentsRes.data || []
+    const paidOrderIds = new Set(allPayments.filter(p => p.status === 'completed').map(p => p.order_id))
+
+    orders.value = allOrders.map(o => ({
+      ...o,
+      total: o.total || 0,
+      subtotal: o.subtotal || 0,
+      tax: o.tax || 0,
+      item_count: o.items?.length || 0,
+      payment_status: paidOrderIds.has(o.id) ? 'paid' : 'unpaid',
+      payment_method: allPayments.find(p => p.order_id === o.id && p.status === 'completed')?.payment_method_name || null
+    }))
+
+    const methods = methodsRes.data || []
+    paymentMethods.value = methods.map(m => ({ ...m, icon: m.name === 'Cash' ? '💵' : m.name.includes('Mobile') ? '📱' : '💳' }))
+
+    const sales = salesRes.data
+    todaySummary.value = {
+      revenue: sales.total_revenue || 0,
+      ordersCompleted: sales.total_orders || 0,
+      avgOrderValue: sales.avg_order_value || 0,
+      pendingPayments: orders.value.filter(o => o.payment_status === 'unpaid').length
+    }
+
+    // Build payment breakdown
+    const breakdown = {}
+    for (const p of allPayments.filter(p => p.status === 'completed')) {
+      const name = p.payment_method_name || 'Other'
+      breakdown[name] = (breakdown[name] || 0) + (p.amount || 0)
+    }
+    paymentBreakdown.value = Object.entries(breakdown).map(([name, amount]) => ({ name, amount }))
+
+  } catch (e) {
+    console.error('Failed to load billing data', e)
+  }
+}
+
+onMounted(fetchData)
 
 const filteredOrders = computed(() => {
   let result = orders.value
@@ -199,21 +234,33 @@ const filteredOrders = computed(() => {
 
 const openPaymentModal = (order) => {
   selectedOrder.value = order
-  paymentForm.value = { method: 1, tip: 0 }
+  paymentForm.value = { method: paymentMethods.value[0]?.id || '', tip: 0 }
   showPaymentModal.value = true
 }
 
-const processPayment = () => {
-  const order = orders.value.find(o => o.id === selectedOrder.value.id)
-  if (order) {
-    order.payment_status = 'paid'
-    order.payment_method = paymentMethods.value.find(m => m.id === paymentForm.value.method)?.name
+const processPayment = async () => {
+  try {
+    await billingAPI.createPayment({
+      order_id: selectedOrder.value.id,
+      payment_method_id: paymentForm.value.method,
+      amount: selectedOrder.value.total + (paymentForm.value.tip || 0),
+      tip: paymentForm.value.tip || 0
+    })
+    showPaymentModal.value = false
+    await fetchData()
+  } catch (e) {
+    alert('Payment failed: ' + (e.response?.data?.error || e.message))
   }
-  showPaymentModal.value = false
 }
 
-const generateReceipt = (order) => {
-  alert(`Receipt for Order #${order.order_number} generated!`)
+const generateReceipt = async (order) => {
+  try {
+    const res = await billingAPI.generateReceipt(order.id)
+    const r = res.data
+    alert(`Receipt for Order #${r.order_number}\nTable: ${r.table}\nTotal: NRS ${r.total}\nItems: ${(r.items || []).map(i => `${i.quantity}x ${i.name}`).join(', ')}`)
+  } catch (e) {
+    alert('Failed to generate receipt: ' + (e.response?.data?.error || e.message))
+  }
 }
 </script>
 

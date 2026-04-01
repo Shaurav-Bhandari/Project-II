@@ -40,7 +40,7 @@
                 <div style="font-size: 12px; color: var(--text-muted);">{{ item.description }}</div>
               </td>
               <td>{{ getCategoryName(item.category_id) }}</td>
-              <td><strong>${{ item.price.toFixed(2) }}</strong></td>
+              <td><strong>NRS {{ item.price.toFixed(2) }}</strong></td>
               <td>{{ item.preparation_time }} min</td>
               <td>
                 <div class="dietary-tags">
@@ -155,32 +155,34 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { menuAPI } from '../api'
 
 const activeCategory = ref('all')
 const showItemModal = ref(false)
 const showCategoryModal = ref(false)
 const editingItem = ref(null)
 
-const categories = ref([
-  { id: 1, name: 'Appetizers', description: 'Start your meal right' },
-  { id: 2, name: 'Main Courses', description: 'Delicious entrees' },
-  { id: 3, name: 'Desserts', description: 'Sweet endings' },
-  { id: 4, name: 'Beverages', description: 'Drinks and refreshments' }
-])
+const categories = ref([])
+const menuItems = ref([])
 
-const menuItems = ref([
-  { id: 1, category_id: 1, name: 'Spring Rolls', description: 'Crispy vegetable spring rolls', price: 8.99, preparation_time: 10, is_available: true, is_vegetarian: true, is_vegan: false, is_gluten_free: false, spice_level: 1 },
-  { id: 2, category_id: 1, name: 'Chicken Wings', description: 'Spicy buffalo wings', price: 12.99, preparation_time: 15, is_available: true, is_vegetarian: false, is_vegan: false, is_gluten_free: true, spice_level: 3 },
-  { id: 3, category_id: 2, name: 'Grilled Salmon', description: 'Atlantic salmon with lemon butter', price: 24.99, preparation_time: 20, is_available: true, is_vegetarian: false, is_vegan: false, is_gluten_free: true, spice_level: 0 },
-  { id: 4, category_id: 2, name: 'Ribeye Steak', description: '12oz prime cut', price: 34.99, preparation_time: 25, is_available: true, is_vegetarian: false, is_vegan: false, is_gluten_free: true, spice_level: 0 },
-  { id: 5, category_id: 2, name: 'Vegetable Pasta', description: 'Penne with roasted vegetables', price: 16.99, preparation_time: 15, is_available: true, is_vegetarian: true, is_vegan: false, is_gluten_free: false, spice_level: 1 },
-  { id: 6, category_id: 3, name: 'Chocolate Lava Cake', description: 'Warm cake with molten center', price: 9.99, preparation_time: 12, is_available: true, is_vegetarian: true, is_vegan: false, is_gluten_free: false, spice_level: 0 },
-  { id: 7, category_id: 4, name: 'Fresh Lemonade', description: 'Homemade fresh', price: 4.99, preparation_time: 2, is_available: true, is_vegetarian: true, is_vegan: true, is_gluten_free: true, spice_level: 0 }
-])
-
-const itemForm = ref({ name: '', description: '', category_id: 1, price: 0, preparation_time: 15, is_vegetarian: false, is_vegan: false, is_gluten_free: false, spice_level: 0 })
+const itemForm = ref({ name: '', description: '', category_id: '', price: 0, preparation_time: 15, is_vegetarian: false, is_vegan: false, is_gluten_free: false, spice_level: 0 })
 const categoryForm = ref({ name: '', description: '' })
+
+const fetchData = async () => {
+  try {
+    const [catRes, itemRes] = await Promise.all([
+      menuAPI.getCategories(),
+      menuAPI.getItems()
+    ])
+    categories.value = catRes.data || []
+    menuItems.value = (itemRes.data || []).map(i => ({ ...i, price: Number(i.price) }))
+  } catch (e) {
+    console.error('Failed to load menu data', e)
+  }
+}
+
+onMounted(fetchData)
 
 const filteredItems = computed(() => {
   if (activeCategory.value === 'all') return menuItems.value
@@ -195,28 +197,43 @@ const openItemModal = (item = null) => {
     itemForm.value = { ...item }
   } else {
     editingItem.value = null
-    itemForm.value = { name: '', description: '', category_id: 1, price: 0, preparation_time: 15, is_vegetarian: false, is_vegan: false, is_gluten_free: false, spice_level: 0 }
+    itemForm.value = { name: '', description: '', category_id: categories.value[0]?.id || '', price: 0, preparation_time: 15, is_vegetarian: false, is_vegan: false, is_gluten_free: false, spice_level: 0 }
   }
   showItemModal.value = true
 }
 
-const saveItem = () => {
-  if (editingItem.value) {
-    Object.assign(editingItem.value, itemForm.value)
-  } else {
-    menuItems.value.push({ ...itemForm.value, id: Date.now(), is_available: true })
+const saveItem = async () => {
+  try {
+    if (editingItem.value) {
+      await menuAPI.updateItem(editingItem.value.id, itemForm.value)
+    } else {
+      await menuAPI.createItem(itemForm.value)
+    }
+    showItemModal.value = false
+    await fetchData()
+  } catch (e) {
+    alert('Failed to save item: ' + (e.response?.data?.error || e.message))
   }
-  showItemModal.value = false
 }
 
-const saveCategory = () => {
-  categories.value.push({ ...categoryForm.value, id: Date.now() })
-  categoryForm.value = { name: '', description: '' }
-  showCategoryModal.value = false
+const saveCategory = async () => {
+  try {
+    await menuAPI.createCategory(categoryForm.value)
+    categoryForm.value = { name: '', description: '' }
+    showCategoryModal.value = false
+    await fetchData()
+  } catch (e) {
+    alert('Failed to save category: ' + (e.response?.data?.error || e.message))
+  }
 }
 
-const toggleAvailability = (item) => {
-  item.is_available = !item.is_available
+const toggleAvailability = async (item) => {
+  try {
+    await menuAPI.toggleAvailability(item.id)
+    item.is_available = !item.is_available
+  } catch (e) {
+    console.error('Failed to toggle availability', e)
+  }
 }
 </script>
 

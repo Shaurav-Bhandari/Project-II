@@ -1,47 +1,47 @@
 /* Restaurant Management System - Main Styles */
 :root {
-  /* Color Palette - Modern Dark Theme */
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-tertiary: #16213e;
-  --bg-card: #1f1f35;
-  --bg-hover: #2a2a45;
-  
+  /* Color Palette - Light Blue / Lavender Theme */
+  --bg-primary: #F9F8F8;
+  --bg-secondary: #ffffff;
+  --bg-tertiary: #D2D8E7;
+  --bg-card: #ffffff;
+  --bg-hover: #e8ecf4;
+
   /* Accent Colors */
-  --accent-primary: #6366f1;
-  --accent-secondary: #8b5cf6;
+  --accent-primary: #228CE0;
+  --accent-secondary: #80A1E8;
   --accent-success: #10b981;
   --accent-warning: #f59e0b;
   --accent-danger: #ef4444;
-  --accent-info: #3b82f6;
-  
+  --accent-info: #A6C9E8;
+
   /* Text Colors */
-  --text-primary: #ffffff;
-  --text-secondary: #a1a1aa;
-  --text-muted: #71717a;
-  
+  --text-primary: #1a1a2e;
+  --text-secondary: #4a5568;
+  --text-muted: #718096;
+
   /* Gradients */
-  --gradient-primary: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  --gradient-primary: linear-gradient(135deg, #228CE0 0%, #80A1E8 100%);
   --gradient-success: linear-gradient(135deg, #10b981 0%, #34d399 100%);
   --gradient-warning: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
   --gradient-danger: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
-  
+
   /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.4);
-  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(99, 102, 241, 0.3);
-  
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1);
+  --shadow-glow: 0 0 20px rgba(34, 140, 224, 0.25);
+
   /* Border */
-  --border-color: #2a2a45;
+  --border-color: #D2D8E7;
   --border-radius: 12px;
   --border-radius-sm: 8px;
   --border-radius-lg: 16px;
-  
+
   /* Spacing */
   --sidebar-width: 260px;
   --header-height: 70px;
-  
+
   /* Transitions */
   --transition-fast: 0.15s ease;
   --transition-normal: 0.3s ease;
@@ -73,7 +73,9 @@ button {
   font-size: inherit;
 }
 
-input, select, textarea {
+input,
+select,
+textarea {
   font-family: inherit;
   font-size: inherit;
 }
@@ -214,6 +216,20 @@ input, select, textarea {
   gap: 24px;
 }
 
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+.mobile-menu-btn:hover {
+  background: var(--bg-hover);
+}
+
 .page-title {
   font-size: 24px;
   font-weight: 700;
@@ -351,10 +367,21 @@ input, select, textarea {
   height: 4px;
 }
 
-.stat-card.primary::before { background: var(--gradient-primary); }
-.stat-card.success::before { background: var(--gradient-success); }
-.stat-card.warning::before { background: var(--gradient-warning); }
-.stat-card.danger::before { background: var(--gradient-danger); }
+.stat-card.primary::before {
+  background: var(--gradient-primary);
+}
+
+.stat-card.success::before {
+  background: var(--gradient-success);
+}
+
+.stat-card.warning::before {
+  background: var(--gradient-warning);
+}
+
+.stat-card.danger::before {
+  background: var(--gradient-danger);
+}
 
 .stat-icon {
   width: 48px;
@@ -367,10 +394,25 @@ input, select, textarea {
   margin-bottom: 16px;
 }
 
-.stat-card.primary .stat-icon { background: rgba(99, 102, 241, 0.15); color: var(--accent-primary); }
-.stat-card.success .stat-icon { background: rgba(16, 185, 129, 0.15); color: var(--accent-success); }
-.stat-card.warning .stat-icon { background: rgba(245, 158, 11, 0.15); color: var(--accent-warning); }
-.stat-card.danger .stat-icon { background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); }
+.stat-card.primary .stat-icon {
+  background: rgba(34, 140, 224, 0.12);
+  color: var(--accent-primary);
+}
+
+.stat-card.success .stat-icon {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-success);
+}
+
+.stat-card.warning .stat-icon {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--accent-warning);
+}
+
+.stat-card.danger .stat-icon {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--accent-danger);
+}
 
 .stat-value {
   font-size: 32px;
@@ -391,8 +433,13 @@ input, select, textarea {
   margin-top: 12px;
 }
 
-.stat-change.up { color: var(--accent-success); }
-.stat-change.down { color: var(--accent-danger); }
+.stat-change.up {
+  color: var(--accent-success);
+}
+
+.stat-change.down {
+  color: var(--accent-danger);
+}
 
 /* ===== BUTTONS ===== */
 .btn {
@@ -434,7 +481,7 @@ input, select, textarea {
 
 .btn-warning {
   background: var(--gradient-warning);
-  color: #1a1a2e;
+  color: #ffffff;
 }
 
 .btn-danger {
@@ -478,7 +525,7 @@ input, select, textarea {
 .form-input:focus {
   outline: none;
   border-color: var(--accent-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+  box-shadow: 0 0 0 3px rgba(34, 140, 224, 0.2);
 }
 
 .form-input::placeholder {
@@ -487,7 +534,7 @@ input, select, textarea {
 
 .form-select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23a1a1aa' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%23718096' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 12px center;
   padding-right: 40px;
@@ -533,17 +580,36 @@ input, select, textarea {
   font-weight: 500;
 }
 
-.badge-primary { background: rgba(99, 102, 241, 0.15); color: var(--accent-primary); }
-.badge-success { background: rgba(16, 185, 129, 0.15); color: var(--accent-success); }
-.badge-warning { background: rgba(245, 158, 11, 0.15); color: var(--accent-warning); }
-.badge-danger { background: rgba(239, 68, 68, 0.15); color: var(--accent-danger); }
-.badge-info { background: rgba(59, 130, 246, 0.15); color: var(--accent-info); }
+.badge-primary {
+  background: rgba(34, 140, 224, 0.12);
+  color: var(--accent-primary);
+}
+
+.badge-success {
+  background: rgba(16, 185, 129, 0.12);
+  color: var(--accent-success);
+}
+
+.badge-warning {
+  background: rgba(245, 158, 11, 0.12);
+  color: var(--accent-warning);
+}
+
+.badge-danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: var(--accent-danger);
+}
+
+.badge-info {
+  background: rgba(166, 201, 232, 0.2);
+  color: var(--accent-info);
+}
 
 /* ===== MODALS ===== */
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.35);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -902,7 +968,9 @@ input, select, textarea {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ===== EMPTY STATE ===== */
@@ -933,7 +1001,7 @@ input, select, textarea {
   .order-form-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .order-cart {
     position: static;
   }
@@ -943,20 +1011,66 @@ input, select, textarea {
   .sidebar {
     transform: translateX(-100%);
     transition: var(--transition-normal);
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
   }
-  
+
   .sidebar.open {
     transform: translateX(0);
   }
-  
+
+  .sidebar-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 999;
+  }
+
   .main-content {
     margin-left: 0;
   }
-  
+
+  .header {
+    padding: 0 16px;
+  }
+
+  .mobile-menu-btn {
+    display: block;
+  }
+
+  .header-left {
+    gap: 12px;
+  }
+
+  .page-title {
+    font-size: 18px;
+  }
+
+  .user-info {
+    display: none;
+  }
+
+  .header-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+
+  .user-avatar {
+    width: 32px;
+    height: 32px;
+  }
+
+  .user-menu {
+    padding: 4px;
+  }
+
   .page-content {
     padding: 16px;
   }
-  
+
   .stats-grid {
     grid-template-columns: 1fr;
   }
@@ -964,8 +1078,15 @@ input, select, textarea {
 
 /* ===== ANIMATIONS ===== */
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .fade-in {
@@ -973,8 +1094,15 @@ input, select, textarea {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 .pulse {
